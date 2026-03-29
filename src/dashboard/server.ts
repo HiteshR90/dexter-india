@@ -11,6 +11,8 @@ import {
   handlePortfolioTechnicals,
   handlePortfolioFundamentals,
   handleAgentAnalysis,
+  handleRiskReport,
+  handleTaxReport,
 } from "./routes";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3000", 10);
@@ -84,6 +86,10 @@ const server = Bun.serve({
           res = await handlePortfolioFundamentals();
         } else if (path === "/api/agent-analysis" && req.method === "GET") {
           res = await handleAgentAnalysis(req);
+        } else if (path === "/api/risk" && req.method === "GET") {
+          res = await handleRiskReport();
+        } else if (path === "/api/tax" && req.method === "GET") {
+          res = await handleTaxReport();
         } else {
           res = new Response(JSON.stringify({ error: "Not found" }), {
             status: 404,

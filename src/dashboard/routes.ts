@@ -16,6 +16,10 @@ import { fetchFundamentals } from "../tools/india/fundamentals";
 import { getNseHistorical } from "../tools/india/nse-api";
 import { generateInsights, type PortfolioInsights } from "./insights";
 import { analyzeStock, analyzePortfolio } from "../agents/orchestrator";
+import { applyRiskOverrides } from "../agents/risk/hard-overrides.js";
+import { computeTaxAnalysis } from "../agents/risk/tax-agent.js";
+import type { HoldingForRisk } from "../agents/risk/hard-overrides.js";
+import type { HoldingForTax } from "../agents/risk/tax-agent.js";
 
 // Cache for quotes (refresh every 30s)
 let quotesCache: Map<string, NseQuote> = new Map();
@@ -424,6 +428,84 @@ export async function handleNews(): Promise<Response> {
         sentiment: "neutral",
       })),
     });
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleRiskReport(): Promise<Response> {
+  try {
+    const holdings = await getHoldings();
+    if (holdings.length === 0) return json({ error: "No holdings" }, 400);
+
+    const symbols = holdings.map((h) => h.symbol);
+    let quotes = new Map<string, NseQuote>();
+    try {
+      quotes = await fetchQuotes(symbols);
+    } catch { /* continue with stored prices */ }
+
+    const totalValue = holdings.reduce((s, h) => {
+      const q = quotes.get(h.symbol);
+      const price = q?.lastPrice ?? h.lastPrice ?? 0;
+      return s + price * h.quantity;
+    }, 0);
+
+    const riskHoldings: HoldingForRisk[] = holdings.map((h) => {
+      const q = quotes.get(h.symbol);
+      const currentPrice = q?.lastPrice ?? h.lastPrice ?? 0;
+      const value = currentPrice * h.quantity;
+      return {
+        symbol: h.symbol,
+        quantity: h.quantity,
+        avgPrice: h.avgPrice,
+        currentPrice,
+        value,
+        portfolioWeight: totalValue > 0 ? (value / totalValue) * 100 : 0,
+        sector: h.sector || "Unknown",
+      };
+    });
+
+    // Use empty decisions map (no AI decisions to override in standalone mode)
+    const decisions: Record<string, string> = {};
+    for (const h of riskHoldings) {
+      decisions[h.symbol] = "HOLD"; // default
+    }
+
+    const report = applyRiskOverrides(riskHoldings, decisions);
+    return json(report);
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleTaxReport(): Promise<Response> {
+  try {
+    const holdings = await getHoldings();
+    if (holdings.length === 0) return json({ error: "No holdings" }, 400);
+
+    const symbols = holdings.map((h) => h.symbol);
+    let quotes = new Map<string, NseQuote>();
+    try {
+      quotes = await fetchQuotes(symbols);
+    } catch { /* continue with stored prices */ }
+
+    const taxHoldings: HoldingForTax[] = holdings.map((h) => {
+      const q = quotes.get(h.symbol);
+      const currentPrice = q?.lastPrice ?? h.lastPrice ?? 0;
+      const invested = h.avgPrice * h.quantity;
+      const value = currentPrice * h.quantity;
+      return {
+        symbol: h.symbol,
+        quantity: h.quantity,
+        avgPrice: h.avgPrice,
+        currentPrice,
+        pnl: value - invested,
+        uploadedAt: h.uploadedAt,
+      };
+    });
+
+    const report = computeTaxAnalysis(taxHoldings);
+    return json(report);
   } catch (e: any) {
     return json({ error: e.message }, 500);
   }
