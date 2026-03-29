@@ -482,3 +482,211 @@ function renderInsights(data) {
 }
 
 // Insights auto-loaded via refreshAll() — no extra hooks needed.
+
+// === AI AGENT ANALYSIS ===
+
+function populateAgentStockSelect(holdings) {
+  const select = document.getElementById('agentStockSelect');
+  if (!select || !holdings) return;
+  // Keep first option, remove rest
+  while (select.options.length > 1) select.remove(1);
+  holdings.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h.symbol;
+    opt.textContent = `${h.symbol} — ${h.name || h.symbol}`;
+    select.appendChild(opt);
+  });
+  document.getElementById('agentSection').style.display = 'block';
+}
+
+async function loadStockAgent(symbol) {
+  if (!symbol) {
+    document.getElementById('agentResult').style.display = 'none';
+    return;
+  }
+  const status = document.getElementById('agentStatus');
+  status.textContent = `Analyzing ${symbol}... (4 personas + debate + CIO, ~15s)`;
+  
+  try {
+    const res = await fetch(`/api/agent-analysis?symbol=${symbol}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    renderAgentResult(data);
+    status.textContent = `Analysis complete for ${symbol}`;
+  } catch (e) {
+    status.textContent = `Error: ${e.message}`;
+    console.error('Agent analysis error:', e);
+  }
+}
+
+async function runPortfolioAgents() {
+  const btn = document.getElementById('runAllAgentsBtn');
+  const status = document.getElementById('agentStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analyzing...';
+  status.textContent = 'Running AI analysis on top holdings... (this may take 1-2 minutes)';
+  
+  try {
+    const res = await fetch('/api/agent-analysis');
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    renderPortfolioAgentResults(data);
+    status.textContent = `Analyzed ${data.totalStocks} stocks`;
+  } catch (e) {
+    status.textContent = `Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🧠 Analyze Top 10 (AI)';
+  }
+}
+
+function renderAgentResult(data) {
+  document.getElementById('agentResult').style.display = 'block';
+  document.getElementById('portfolioAgentResults').style.display = 'none';
+  
+  // Persona verdicts
+  const personaEl = document.getElementById('personaVerdicts');
+  const emojis = { 'Jhunjhunwala': '🐂', 'Damani': '🧘', 'Contrarian': '🔄', 'Momentum': '🚀' };
+  const verdictColors = {
+    'STRONG_BUY': 'var(--green)', 'BUY': '#66bb6a',
+    'HOLD': '#aaa', 'SELL': '#ffaa00', 'STRONG_SELL': 'var(--red)', 'EXIT': 'var(--red)'
+  };
+  
+  personaEl.innerHTML = (data.personaVerdicts || []).map(p => {
+    const color = verdictColors[p.verdict] || '#aaa';
+    const conviction = p.conviction || 5;
+    return `<div class="persona-card">
+      <div class="persona-header">
+        <div>
+          <span class="persona-emoji">${emojis[p.persona] || '🤖'}</span>
+          <span class="persona-name">${p.persona}</span>
+        </div>
+        <span class="verdict-badge" style="background:${color}22;color:${color}">${p.verdict}</span>
+      </div>
+      <div class="conviction-bar"><div class="conviction-fill" style="width:${conviction*10}%;background:${color}"></div></div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px">Conviction: ${conviction}/10${p.timeHorizon ? ' • ' + p.timeHorizon : ''}${p.targetPrice ? ' • Target: ₹' + formatINR(p.targetPrice) : ''}</div>
+      <div class="reasoning">${p.reasoning || ''}</div>
+    </div>`;
+  }).join('');
+  
+  // Debate
+  const debateEl = document.getElementById('debateResult');
+  const d = data.debateResult || {};
+  const winnerClass = d.winner === 'bull' ? 'bull-won' : 'bear-won';
+  const winnerText = d.winner === 'bull' ? '🐂 Bull Wins' : '🐻 Bear Wins';
+  debateEl.innerHTML = `
+    <div class="debate-round">
+      <div class="debate-side bull">
+        <div class="label" style="color:var(--green)">🐂 Bull Case</div>
+        ${d.bullArgument || 'No argument'}
+      </div>
+      <div class="debate-side bear">
+        <div class="label" style="color:var(--red)">🐻 Bear Case</div>
+        ${d.bearArgument || 'No argument'}
+      </div>
+    </div>
+    <div class="debate-winner ${winnerClass}">${winnerText} (Confidence: ${d.confidence || 0}/10)</div>
+    <div class="debate-moderator"><strong>Moderator:</strong> ${d.moderatorSummary || ''}</div>
+  `;
+  
+  // CIO Decision
+  const cioEl = document.getElementById('cioDecision');
+  const dec = data.decision || {};
+  const decClass = (dec.decision || 'hold').toLowerCase().replace('_', '-');
+  cioEl.innerHTML = `
+    <div class="cio-card">
+      <div class="cio-decision-badge ${decClass}">
+        ${dec.decision || 'N/A'}
+        <div style="font-size:0.7rem;font-weight:400;margin-top:4px">Confidence: ${dec.confidence || 0}%</div>
+      </div>
+      <div class="cio-details">
+        <div class="reasoning">${dec.reasoning || ''}</div>
+        <div class="key-factors">
+          ${(dec.keyFactors || []).map(f => `<span class="factor-chip">${f}</span>`).join('')}
+        </div>
+        <div class="cio-metrics">
+          ${dec.targetPrice ? `<div class="cio-metric">Target: <strong>₹${formatINR(dec.targetPrice)}</strong></div>` : ''}
+          ${dec.stopLoss ? `<div class="cio-metric">Stop Loss: <strong>₹${formatINR(dec.stopLoss)}</strong></div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPortfolioAgentResults(data) {
+  document.getElementById('agentResult').style.display = 'none';
+  document.getElementById('portfolioAgentResults').style.display = 'block';
+  
+  // Weekly plan
+  const planEl = document.getElementById('weeklyPlan');
+  if (data.weeklyActionPlan) {
+    const lines = data.weeklyActionPlan.split('\n').filter(l => l.trim());
+    planEl.innerHTML = lines.map((line, i) => `
+      <div class="plan-item">
+        <div class="plan-priority">${i + 1}</div>
+        <div class="plan-content">
+          <div class="plan-action">${line}</div>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    planEl.innerHTML = '<div class="empty-state"><div class="subtitle">No action plan generated</div></div>';
+  }
+  
+  // Stock cards
+  const gridEl = document.getElementById('agentStocksGrid');
+  const verdictColors = {
+    'STRONG_BUY': 'var(--green)', 'BUY': '#66bb6a',
+    'HOLD': '#aaa', 'SELL': '#ffaa00', 'STRONG_SELL': 'var(--red)', 'EXIT': 'var(--red)'
+  };
+  const emojis = { 'Jhunjhunwala': '🐂', 'Damani': '🧘', 'Contrarian': '🔄', 'Momentum': '🚀' };
+  
+  gridEl.innerHTML = (data.analyses || []).map(a => {
+    const dec = a.decision || {};
+    const decColor = verdictColors[dec.decision] || '#aaa';
+    const dbWinner = a.debateResult?.winner === 'bull' ? '🐂 Bull won' : '🐻 Bear won';
+    
+    return `<div class="agent-stock-card">
+      <div class="stock-header">
+        <div class="stock-name">${a.symbol}</div>
+        <span class="signal-badge" style="background:${decColor}22;color:${decColor}">${dec.decision || 'N/A'}</span>
+      </div>
+      <div class="personas-mini">
+        ${(a.personaVerdicts || []).map(p => {
+          const c = verdictColors[p.verdict] || '#aaa';
+          return `<span class="persona-mini-chip" style="background:${c}22;color:${c}">${emojis[p.persona]||''} ${p.verdict}</span>`;
+        }).join('')}
+      </div>
+      <div class="debate-mini">⚔️ ${dbWinner} (${a.debateResult?.confidence || 0}/10)</div>
+      <div class="cio-mini" style="color:${decColor}">
+        🎯 ${dec.decision} — Confidence ${dec.confidence || 0}%
+        ${dec.targetPrice ? ` • Target ₹${formatINR(dec.targetPrice)}` : ''}
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:6px;max-height:60px;overflow:hidden">${dec.reasoning || ''}</div>
+    </div>`;
+  }).join('');
+}
+
+// Hook: populate stock dropdown when portfolio loads
+const _origFetchPortfolio = window.fetchPortfolio;
+if (typeof fetchPortfolio === 'function') {
+  const origFn = fetchPortfolio;
+  window.fetchPortfolio = async function() {
+    await origFn();
+    // After portfolio loads, populate the agent dropdown
+    try {
+      const res = await fetch('/api/portfolio');
+      const data = await res.json();
+      if (data.holdings) populateAgentStockSelect(data.holdings);
+    } catch {}
+  };
+}
+// Also try on initial load
+setTimeout(async () => {
+  try {
+    const res = await fetch('/api/portfolio');
+    const data = await res.json();
+    if (data.holdings && data.holdings.length > 0) populateAgentStockSelect(data.holdings);
+  } catch {}
+}, 3000);
+JSEOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc

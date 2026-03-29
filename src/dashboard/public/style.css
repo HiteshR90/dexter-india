@@ -585,3 +585,153 @@ tr:nth-child(even):hover td { background: rgba(74, 158, 255, 0.04); }
 .signal-badge.strong-buy { background: rgba(0,200,83,0.2); color: var(--green); }
 .text-red { color: var(--red); }
 .text-green { color: var(--green); }
+
+/* === AI AGENT ANALYSIS === */
+.agent-section { margin-bottom: 24px; }
+.agent-controls {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.agent-controls select {
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-primary);
+  font-size: 0.85rem; min-width: 280px;
+}
+.btn-sm { padding: 8px 16px; font-size: 0.8rem; }
+.agent-status {
+  font-size: 0.8rem; color: var(--text-secondary); font-style: italic;
+}
+
+/* Persona cards */
+.persona-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.persona-card {
+  padding: 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+}
+.persona-card .persona-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.persona-card .persona-name {
+  font-weight: 600; font-size: 0.9rem;
+}
+.persona-card .persona-emoji {
+  font-size: 1.4rem;
+}
+.persona-card .conviction-bar {
+  height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06);
+  margin: 8px 0; overflow: hidden;
+}
+.persona-card .conviction-fill {
+  height: 100%; border-radius: 2px; transition: width 0.3s;
+}
+.persona-card .reasoning {
+  font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;
+  max-height: 80px; overflow-y: auto;
+}
+.persona-card .verdict-badge {
+  padding: 3px 10px; border-radius: 12px; font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Debate */
+.debate-round {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-bottom: 16px;
+}
+.debate-side {
+  padding: 12px; border-radius: 8px; font-size: 0.82rem; line-height: 1.6;
+}
+.debate-side.bull { background: rgba(0,200,83,0.06); border-left: 3px solid var(--green); }
+.debate-side.bear { background: rgba(255,23,68,0.06); border-left: 3px solid var(--red); }
+.debate-side .label { font-weight: 600; margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.debate-winner {
+  padding: 12px; border-radius: 8px; text-align: center;
+  font-weight: 600; margin-top: 8px;
+}
+.debate-winner.bull-won { background: rgba(0,200,83,0.1); color: var(--green); }
+.debate-winner.bear-won { background: rgba(255,23,68,0.1); color: var(--red); }
+.debate-moderator {
+  font-size: 0.82rem; color: var(--text-secondary); margin-top: 8px;
+  padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px;
+  line-height: 1.6;
+}
+
+/* CIO Decision */
+.cio-card {
+  display: flex; gap: 24px; align-items: flex-start;
+}
+.cio-decision-badge {
+  font-size: 1.4rem; font-weight: 700; padding: 16px 24px;
+  border-radius: 12px; text-align: center; min-width: 140px; flex-shrink: 0;
+}
+.cio-decision-badge.strong-buy, .cio-decision-badge.buy { background: rgba(0,200,83,0.12); color: var(--green); }
+.cio-decision-badge.hold { background: rgba(255,255,255,0.06); color: #aaa; }
+.cio-decision-badge.sell, .cio-decision-badge.exit { background: rgba(255,23,68,0.12); color: var(--red); }
+.cio-details { flex: 1; }
+.cio-details .reasoning { font-size: 0.85rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px; }
+.cio-details .key-factors { display: flex; flex-wrap: wrap; gap: 6px; }
+.cio-details .factor-chip {
+  padding: 4px 10px; border-radius: 6px; font-size: 0.75rem;
+  background: rgba(99,179,237,0.08); border: 1px solid rgba(99,179,237,0.15);
+  color: #90caf9;
+}
+.cio-metrics {
+  display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap;
+}
+.cio-metric {
+  font-size: 0.78rem; color: var(--text-secondary);
+}
+.cio-metric strong { color: var(--text-primary); }
+
+/* Weekly plan */
+.weekly-plan .plan-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.weekly-plan .plan-item:last-child { border-bottom: none; }
+.plan-priority {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  background: rgba(99,179,237,0.15); color: #90caf9;
+}
+.plan-content { flex: 1; }
+.plan-content .plan-action { font-weight: 600; font-size: 0.88rem; margin-bottom: 2px; }
+.plan-content .plan-reason { font-size: 0.78rem; color: var(--text-secondary); }
+
+/* Agent stock cards grid */
+.agent-stocks-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px;
+  margin-top: 16px;
+}
+.agent-stock-card {
+  padding: 16px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--bg-card);
+}
+.agent-stock-card .stock-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.agent-stock-card .stock-name { font-weight: 600; font-size: 1rem; }
+.agent-stock-card .personas-mini {
+  display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.persona-mini-chip {
+  padding: 3px 8px; border-radius: 10px; font-size: 0.68rem; font-weight: 600;
+}
+.agent-stock-card .debate-mini {
+  font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px;
+}
+.agent-stock-card .cio-mini {
+  font-size: 0.82rem; font-weight: 600; margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+  .persona-grid { grid-template-columns: 1fr; }
+  .debate-round { grid-template-columns: 1fr; }
+  .cio-card { flex-direction: column; }
+  .agent-stocks-grid { grid-template-columns: 1fr; }
+}
+CSSEOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc

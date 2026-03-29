@@ -169,6 +169,50 @@
       </div>
     </section>
 
+    <!-- AI AGENT ANALYSIS -->
+    <section class="agent-section" id="agentSection" style="display:none">
+      <div class="card">
+        <div class="card-title">🤖 AI Agent Deep Analysis</div>
+        <div class="agent-controls">
+          <select id="agentStockSelect" onchange="loadStockAgent(this.value)">
+            <option value="">Select a stock for deep analysis...</option>
+          </select>
+          <button class="btn btn-sm" onclick="runPortfolioAgents()" id="runAllAgentsBtn">🧠 Analyze Top 10 (AI)</button>
+          <span class="agent-status" id="agentStatus"></span>
+        </div>
+      </div>
+
+      <!-- Single stock agent result -->
+      <div id="agentResult" style="display:none">
+        <div class="grid-2">
+          <!-- Persona verdicts -->
+          <div class="card">
+            <div class="card-title">👥 Investor Panel</div>
+            <div id="personaVerdicts" class="persona-grid"></div>
+          </div>
+          <!-- Debate -->
+          <div class="card">
+            <div class="card-title">⚔️ Bull vs Bear Debate</div>
+            <div id="debateResult"></div>
+          </div>
+        </div>
+        <!-- CIO Decision -->
+        <div class="card">
+          <div class="card-title">🎯 CIO Decision</div>
+          <div id="cioDecision"></div>
+        </div>
+      </div>
+
+      <!-- Portfolio agent results -->
+      <div id="portfolioAgentResults" style="display:none">
+        <div class="card">
+          <div class="card-title">📋 Weekly Action Plan</div>
+          <div id="weeklyPlan" class="weekly-plan"></div>
+        </div>
+        <div class="agent-stocks-grid" id="agentStocksGrid"></div>
+      </div>
+    </section>
+
     <!-- CHARTS + MOVERS ROW -->
     <div class="grid-2">
       <!-- SECTOR ALLOCATION -->
