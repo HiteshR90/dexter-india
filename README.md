@@ -9,11 +9,8 @@ An autonomous AI agent for **Indian stock market research** with a real-time **p
 ### Portfolio Overview — Live Market Data + Holdings
 <img width="100%" alt="Dexter India Dashboard - Portfolio overview with live NSE data, holdings table, P&L tracking" src="docs/screenshots/dashboard-top.png" />
 
-### Charts, Top Movers & Market News
-<img width="100%" alt="Dexter India Dashboard - Sector allocation, top movers, and live RSS news feed" src="docs/screenshots/dashboard-bottom.png" />
-
-### Full Dashboard with 160+ Stock Portfolio
-<img width="100%" alt="Dexter India Dashboard - Full portfolio with AI insights" src="docs/screenshots/dashboard-full.png" />
+### AI Insights, Sector Allocation & Market News
+<img width="100%" alt="Dexter India Dashboard - AI insights, sector allocation, top movers, and live RSS news feed" src="docs/screenshots/dashboard-bottom.png" />
 
 ---
 
