@@ -735,3 +735,54 @@ tr:nth-child(even):hover td { background: rgba(74, 158, 255, 0.04); }
   .agent-stocks-grid { grid-template-columns: 1fr; }
 }
 CSSEOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc
+
+/* === RISK + TAX === */
+.risk-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;
+}
+.risk-metric-card {
+  padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border); text-align: center;
+}
+.risk-metric-card .metric-value { font-size: 1.4rem; font-weight: 700; }
+.risk-metric-card .metric-label { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
+
+.risk-overrides { margin-bottom: 12px; }
+.override-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 6px; margin-bottom: 6px; font-size: 0.82rem;
+}
+.override-item.critical { background: rgba(255,23,68,0.08); border-left: 3px solid var(--red); }
+.override-item.warning { background: rgba(255,152,0,0.08); border-left: 3px solid #ffaa00; }
+.override-item.forced { background: rgba(255,23,68,0.15); border-left: 3px solid var(--red); }
+.override-item .symbol { font-weight: 600; min-width: 80px; }
+.override-item .rule { color: var(--text-secondary); }
+
+.tax-summary {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;
+}
+.tax-card {
+  padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+}
+.tax-card .tax-value { font-size: 1.2rem; font-weight: 700; }
+.tax-card .tax-label { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px; }
+
+.tax-alerts { margin-bottom: 12px; }
+.tax-alert {
+  padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 0.82rem;
+  background: rgba(255,152,0,0.06); border-left: 3px solid #ffaa00;
+}
+
+.tax-holdings { max-height: 300px; overflow-y: auto; }
+.tax-holding-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.8rem;
+}
+.tax-holding-row .tax-badge {
+  padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600;
+}
+.tax-badge.stcg { background: rgba(255,152,0,0.15); color: #ffaa00; }
+.tax-badge.ltcg { background: rgba(0,200,83,0.12); color: var(--green); }
+.tax-badge.near-ltcg { background: rgba(99,179,237,0.12); color: #90caf9; }
+CSSEOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc

@@ -13,6 +13,8 @@ import {
   handleAgentAnalysis,
   handleRiskReport,
   handleTaxReport,
+  handleDailyReport,
+  handleWeeklyReport,
 } from "./routes";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3000", 10);
@@ -90,6 +92,10 @@ const server = Bun.serve({
           res = await handleRiskReport();
         } else if (path === "/api/tax" && req.method === "GET") {
           res = await handleTaxReport();
+        } else if (path === "/api/report/daily" && req.method === "GET") {
+          res = await handleDailyReport();
+        } else if (path === "/api/report/weekly" && req.method === "GET") {
+          res = await handleWeeklyReport();
         } else {
           res = new Response(JSON.stringify({ error: "Not found" }), {
             status: 404,

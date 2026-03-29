@@ -84,6 +84,7 @@ async function refreshAll() {
   ]);
   // Load AI insights after data is fetched
   if (typeof loadInsights === 'function') loadInsights();
+  if (typeof loadRiskTax === 'function') loadRiskTax();
   const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   document.getElementById('lastUpdated').textContent = 'Updated ' + now;
 }
@@ -689,4 +690,103 @@ setTimeout(async () => {
     if (data.holdings && data.holdings.length > 0) populateAgentStockSelect(data.holdings);
   } catch {}
 }, 3000);
+JSEOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc
+
+// === RISK + TAX ===
+async function loadRiskTax() {
+  try {
+    const [riskRes, taxRes] = await Promise.allSettled([
+      fetch('/api/risk'),
+      fetch('/api/tax'),
+    ]);
+    
+    const section = document.getElementById('riskTaxSection');
+    let hasData = false;
+    
+    if (riskRes.status === 'fulfilled' && riskRes.value.ok) {
+      const risk = await riskRes.value.json();
+      if (!risk.error) { renderRisk(risk); hasData = true; }
+    }
+    if (taxRes.status === 'fulfilled' && taxRes.value.ok) {
+      const tax = await taxRes.value.json();
+      if (!tax.error) { renderTax(tax); hasData = true; }
+    }
+    if (hasData) section.style.display = 'block';
+  } catch (e) { console.warn('Risk/Tax load error:', e); }
+}
+
+function renderRisk(data) {
+  const m = data.portfolioMetrics || {};
+  document.getElementById('riskMetrics').innerHTML = `
+    <div class="risk-metric-card">
+      <div class="metric-value" style="color:${m.diversificationScore >= 60 ? 'var(--green)' : m.diversificationScore >= 40 ? '#ffaa00' : 'var(--red)'}">${m.diversificationScore || 0}</div>
+      <div class="metric-label">Diversification Score</div>
+    </div>
+    <div class="risk-metric-card">
+      <div class="metric-value">${m.totalStocks || 0}</div>
+      <div class="metric-label">Total Stocks</div>
+    </div>
+    <div class="risk-metric-card">
+      <div class="metric-value" style="color:${m.maxSingleWeight > 10 ? 'var(--red)' : 'var(--green)'}">${(m.maxSingleWeight || 0).toFixed(1)}%</div>
+      <div class="metric-label">Max Stock Weight (${m.maxSingleStock || ''})</div>
+    </div>
+  `;
+  
+  const overrides = data.overrides || [];
+  document.getElementById('riskOverrides').innerHTML = overrides.length === 0
+    ? '<div style="color:var(--green);font-size:0.85rem;padding:8px">✅ No risk overrides needed</div>'
+    : overrides.map(o => `
+      <div class="override-item ${o.severity}">
+        <span class="symbol">${o.symbol}</span>
+        <span class="signal-badge ${o.overriddenTo.toLowerCase().replace('_','-')}" style="font-size:0.7rem">${o.overriddenTo}</span>
+        <span class="rule">${o.reason}</span>
+      </div>
+    `).join('');
+  
+  const warnings = [...(data.warnings || []), ...(data.criticalAlerts || [])];
+  document.getElementById('riskWarnings').innerHTML = warnings.map(w =>
+    `<div style="font-size:0.8rem;color:var(--text-secondary);padding:4px 0">${w}</div>`
+  ).join('');
+}
+
+function renderTax(data) {
+  const s = data.summary || {};
+  document.getElementById('taxSummary').innerHTML = `
+    <div class="tax-card">
+      <div class="tax-value">${s.stcgCount || 0} stocks</div>
+      <div class="tax-label">STCG (20% tax)</div>
+    </div>
+    <div class="tax-card">
+      <div class="tax-value">${s.ltcgCount || 0} stocks</div>
+      <div class="tax-label">LTCG (12.5% tax)</div>
+    </div>
+    <div class="tax-card">
+      <div class="tax-value text-green">₹${formatINR(s.ltcgExemptionRemaining || 0)}</div>
+      <div class="tax-label">LTCG Exemption Left (of ₹1.25L)</div>
+    </div>
+    <div class="tax-card">
+      <div class="tax-value" style="color:${(s.potentialTaxSaving || 0) > 0 ? 'var(--green)' : '#aaa'}">₹${formatINR(s.potentialTaxSaving || 0)}</div>
+      <div class="tax-label">Tax-Loss Harvest Saving</div>
+    </div>
+  `;
+  
+  document.getElementById('taxAlerts').innerHTML = (data.alerts || []).map(a =>
+    `<div class="tax-alert">${a}</div>`
+  ).join('');
+  
+  // Show near-LTCG and harvest candidates
+  const interesting = (data.holdings || []).filter(h => h.daysToLTCG > 0 && h.daysToLTCG <= 30 || h.isHarvestCandidate);
+  document.getElementById('taxHoldings').innerHTML = interesting.map(h => {
+    const badge = h.daysToLTCG > 0 && h.daysToLTCG <= 30
+      ? `<span class="tax-badge near-ltcg">⏳ ${h.daysToLTCG}d to LTCG</span>`
+      : h.isHarvestCandidate
+        ? `<span class="tax-badge stcg">🌾 Harvest ₹${formatINR(h.harvestSaving)}</span>`
+        : `<span class="tax-badge ${h.taxCategory.toLowerCase()}">${h.taxCategory}</span>`;
+    return `<div class="tax-holding-row">
+      <span><strong>${h.symbol}</strong></span>
+      <span>${h.recommendation}</span>
+      ${badge}
+    </div>`;
+  }).join('');
+}
 JSEOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc

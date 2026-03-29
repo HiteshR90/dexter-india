@@ -6,6 +6,10 @@ import { z } from 'zod';
 import type { StockData, PersonaVerdict } from './personas.js';
 import type { DebateResult } from './debate.js';
 import type { StockDecision, RiskFlags } from './decision.js';
+import { applyRiskOverrides, type PortfolioRiskReport } from './risk/hard-overrides.js';
+import { computeTaxAnalysis, type PortfolioTaxReport } from './risk/tax-agent.js';
+import type { HoldingForRisk } from './risk/hard-overrides.js';
+import type { HoldingForTax } from './risk/tax-agent.js';
 
 const MODEL = 'anthropic/claude-haiku-4-5-20251001';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -50,6 +54,8 @@ export interface FullStockAnalysis {
 export interface PortfolioAnalysis {
   analyses: FullStockAnalysis[];
   weeklyActionPlan: string;
+  riskReport: PortfolioRiskReport;
+  taxReport: PortfolioTaxReport;
   analyzedAt: Date;
   totalStocks: number;
 }
@@ -228,12 +234,64 @@ export async function analyzePortfolio(
     return analyzeStock(holding.symbol, holding, technicals, fundamentals, news);
   });
 
+  // Build decisions map from analyses
+  const decisionsMap: Record<string, string> = {};
+  for (const a of analyses) {
+    decisionsMap[a.symbol] = a.decision.decision;
+  }
+
+  // Build holdings arrays for risk engine and tax agent
+  const totalPortfolioValue = holdings.reduce(
+    (s, h) => s + h.quantity * h.currentPrice, 0,
+  );
+
+  const riskHoldings: HoldingForRisk[] = holdings.map((h) => {
+    const value = h.quantity * h.currentPrice;
+    return {
+      symbol: h.symbol,
+      quantity: h.quantity,
+      avgPrice: h.avgPrice,
+      currentPrice: h.currentPrice,
+      value,
+      portfolioWeight: totalPortfolioValue > 0 ? (value / totalPortfolioValue) * 100 : 0,
+      sector: 'Unknown', // sector not available on Holding type
+    };
+  });
+
+  const taxHoldings: HoldingForTax[] = holdings.map((h) => ({
+    symbol: h.symbol,
+    quantity: h.quantity,
+    avgPrice: h.avgPrice,
+    currentPrice: h.currentPrice,
+    pnl: (h.currentPrice - h.avgPrice) * h.quantity,
+  }));
+
+  // Apply risk overrides
+  const riskReport = applyRiskOverrides(riskHoldings, decisionsMap);
+
+  // Apply risk overrides back to analyses
+  for (const override of riskReport.overrides) {
+    const analysis = analyses.find((a) => a.symbol === override.symbol);
+    if (analysis) {
+      analysis.decision = {
+        ...analysis.decision,
+        decision: override.overriddenTo as any,
+        reasoning: `[RISK OVERRIDE: ${override.rule}] ${override.reason} (Original: ${override.originalDecision})`,
+      };
+    }
+  }
+
+  // Compute tax analysis
+  const taxReport = computeTaxAnalysis(taxHoldings);
+
   // Generate weekly action plan
   const weeklyActionPlan = await generateWeeklyPlan(analyses);
 
   return {
     analyses,
     weeklyActionPlan,
+    riskReport,
+    taxReport,
     analyzedAt: new Date(),
     totalStocks: holdings.length,
   };

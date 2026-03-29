@@ -17,7 +17,9 @@
     "test:watch": "bun test --watch",
     "postinstall": "playwright install chromium",
     "dashboard": "bun run src/dashboard/server.ts",
-    "dev:india": "bun run src/dashboard/server.ts"
+    "dev:india": "bun run src/dashboard/server.ts",
+    "report:daily": "bun run src/dashboard/telegram-report.ts daily",
+    "report:weekly": "bun run src/dashboard/telegram-report.ts weekly"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.3.25",

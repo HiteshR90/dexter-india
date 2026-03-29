@@ -15,9 +15,10 @@ import { computeTechnicals } from "../tools/india/technical-indicators";
 import { fetchFundamentals } from "../tools/india/fundamentals";
 import { getNseHistorical } from "../tools/india/nse-api";
 import { generateInsights, type PortfolioInsights } from "./insights";
-import { analyzeStock, analyzePortfolio } from "../agents/orchestrator";
+import { analyzeStock, analyzePortfolio, type Holding as OrchestratorHolding, type TechnicalData, type FundamentalData } from "../agents/orchestrator";
 import { applyRiskOverrides } from "../agents/risk/hard-overrides.js";
-import { computeTaxAnalysis } from "../agents/risk/tax-agent.js";
+import { computeTaxAnalysis } from '../agents/risk/tax-agent.js';
+import { generateDailyReport, generateWeeklyReport } from './telegram-report.js';
 import type { HoldingForRisk } from "../agents/risk/hard-overrides.js";
 import type { HoldingForTax } from "../agents/risk/tax-agent.js";
 
@@ -359,19 +360,65 @@ export async function handleAgentAnalysis(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const symbol = url.searchParams.get("symbol");
 
+    const defaultTechnicals: TechnicalData = {
+      rsi: 50, macd: 'neutral', maSignal: 'neutral', overallScore: 50,
+    };
+    const defaultFundamentals: FundamentalData = {
+      pe: 0, roe: 0, roce: 0, debtToEquity: 0, revenueGrowth: 0, overallScore: 50,
+    };
+
     if (symbol) {
       // Single stock analysis
       const holdings = await getHoldings();
-      const holding = holdings.find((h) => h.symbol === symbol.toUpperCase());
+      const stored = holdings.find((h) => h.symbol === symbol.toUpperCase());
 
-      const result = await analyzeStock(symbol.toUpperCase(), holding || undefined);
+      const holding: OrchestratorHolding = stored
+        ? {
+            symbol: stored.symbol,
+            name: stored.name || stored.symbol,
+            quantity: stored.quantity,
+            avgPrice: stored.avgPrice,
+            currentPrice: stored.lastPrice ?? stored.avgPrice,
+            pnlPercent: stored.avgPrice > 0
+              ? (((stored.lastPrice ?? stored.avgPrice) - stored.avgPrice) / stored.avgPrice) * 100
+              : 0,
+          }
+        : {
+            symbol: symbol.toUpperCase(),
+            name: symbol.toUpperCase(),
+            quantity: 0,
+            avgPrice: 0,
+            currentPrice: 0,
+            pnlPercent: 0,
+          };
+
+      const result = await analyzeStock(
+        symbol.toUpperCase(), holding, defaultTechnicals, defaultFundamentals, [],
+      );
       return json(result);
     } else {
       // Full portfolio analysis (top 10 by value to manage costs)
-      const holdings = await getHoldings();
-      if (holdings.length === 0) return json({ error: "No holdings" }, 400);
+      const storedHoldings = await getHoldings();
+      if (storedHoldings.length === 0) return json({ error: "No holdings" }, 400);
 
-      const result = await analyzePortfolio(holdings);
+      const orchestratorHoldings: OrchestratorHolding[] = storedHoldings.map((h) => ({
+        symbol: h.symbol,
+        name: h.name || h.symbol,
+        quantity: h.quantity,
+        avgPrice: h.avgPrice,
+        currentPrice: h.lastPrice ?? h.avgPrice,
+        pnlPercent: h.avgPrice > 0
+          ? (((h.lastPrice ?? h.avgPrice) - h.avgPrice) / h.avgPrice) * 100
+          : 0,
+      }));
+
+      const technicalsMap: Record<string, TechnicalData> = {};
+      const fundamentalsMap: Record<string, FundamentalData> = {};
+      const newsMap: Record<string, string[]> = {};
+
+      const result = await analyzePortfolio(
+        orchestratorHoldings, technicalsMap, fundamentalsMap, newsMap,
+      );
       return json(result);
     }
   } catch (e: any) {
@@ -505,6 +552,24 @@ export async function handleTaxReport(): Promise<Response> {
     });
 
     const report = computeTaxAnalysis(taxHoldings);
+    return json(report);
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleDailyReport(): Promise<Response> {
+  try {
+    const report = await generateDailyReport();
+    return json(report);
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleWeeklyReport(): Promise<Response> {
+  try {
+    const report = await generateWeeklyReport();
     return json(report);
   } catch (e: any) {
     return json({ error: e.message }, 500);
