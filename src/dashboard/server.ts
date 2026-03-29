@@ -10,6 +10,7 @@ import {
   handleFundamentals,
   handlePortfolioTechnicals,
   handlePortfolioFundamentals,
+  handleAgentAnalysis,
 } from "./routes";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3000", 10);
@@ -81,6 +82,8 @@ const server = Bun.serve({
           res = await handlePortfolioTechnicals();
         } else if (path === "/api/portfolio/fundamentals" && req.method === "GET") {
           res = await handlePortfolioFundamentals();
+        } else if (path === "/api/agent-analysis" && req.method === "GET") {
+          res = await handleAgentAnalysis(req);
         } else {
           res = new Response(JSON.stringify({ error: "Not found" }), {
             status: 404,

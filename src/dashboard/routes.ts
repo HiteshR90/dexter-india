@@ -15,6 +15,7 @@ import { computeTechnicals } from "../tools/india/technical-indicators";
 import { fetchFundamentals } from "../tools/india/fundamentals";
 import { getNseHistorical } from "../tools/india/nse-api";
 import { generateInsights, type PortfolioInsights } from "./insights";
+import { analyzeStock, analyzePortfolio } from "../agents/orchestrator";
 
 // Cache for quotes (refresh every 30s)
 let quotesCache: Map<string, NseQuote> = new Map();
@@ -344,6 +345,31 @@ export async function handlePortfolioFundamentals(): Promise<Response> {
     }
 
     return json({ fundamentals: results, count: Object.keys(results).length });
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleAgentAnalysis(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const symbol = url.searchParams.get("symbol");
+
+    if (symbol) {
+      // Single stock analysis
+      const holdings = await getHoldings();
+      const holding = holdings.find((h) => h.symbol === symbol.toUpperCase());
+
+      const result = await analyzeStock(symbol.toUpperCase(), holding || undefined);
+      return json(result);
+    } else {
+      // Full portfolio analysis (top 10 by value to manage costs)
+      const holdings = await getHoldings();
+      if (holdings.length === 0) return json({ error: "No holdings" }, 400);
+
+      const result = await analyzePortfolio(holdings);
+      return json(result);
+    }
   } catch (e: any) {
     return json({ error: e.message }, 500);
   }
