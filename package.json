@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "postinstall": "playwright install chromium"
+    "postinstall": "playwright install chromium",
+    "dashboard": "bun run src/dashboard/server.ts",
+    "dev:india": "bun run src/dashboard/server.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.3.25",

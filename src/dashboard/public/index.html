@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dexter India — Portfolio Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="header">
+    <h1>🇮🇳 <span>Dexter India</span> — Portfolio Dashboard</h1>
+    <div class="header-actions">
+      <span class="last-updated" id="lastUpdated"></span>
+      <label class="toggle-label">
+        Auto-refresh
+        <div class="toggle-switch" id="autoRefreshToggle" onclick="toggleAutoRefresh()"></div>
+      </label>
+      <button class="btn" onclick="refreshAll()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <!-- MARKET BAR -->
+  <div class="market-bar" id="marketBar">
+    <div class="market-item" id="idx-nifty50">
+      <div>
+        <div class="name">Nifty 50</div>
+        <div class="value">--</div>
+      </div>
+      <div class="change text-muted">--</div>
+    </div>
+    <div class="market-item" id="idx-niftybank">
+      <div>
+        <div class="name">Bank Nifty</div>
+        <div class="value">--</div>
+      </div>
+      <div class="change text-muted">--</div>
+    </div>
+    <div class="market-item" id="idx-niftyit">
+      <div>
+        <div class="name">Nifty IT</div>
+        <div class="value">--</div>
+      </div>
+      <div class="change text-muted">--</div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- UPLOAD SECTION -->
+    <section class="upload-section" id="uploadSection">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📁</div>
+        <div class="title">Upload Portfolio CSV</div>
+        <div class="subtitle">Drag & drop your holdings CSV or click to browse</div>
+        <div class="formats">Supports: Zerodha, Groww, Angel One, or any CSV with Symbol, Quantity, Avg Price columns</div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv" style="display:none">
+      <div class="upload-status" id="uploadStatus"></div>
+    </section>
+
+    <!-- SUMMARY CARDS -->
+    <section class="summary-grid" id="summaryGrid">
+      <div class="summary-card">
+        <div class="label">Total Value</div>
+        <div class="value" id="totalValue">--</div>
+        <div class="sub text-muted" id="totalInvested">Invested: --</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Today's P&L</div>
+        <div class="value" id="todayPnl">--</div>
+        <div class="sub" id="todayPnlPct">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Total P&L</div>
+        <div class="value" id="totalPnl">--</div>
+        <div class="sub" id="totalPnlPct">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Stocks</div>
+        <div class="value" id="stockCount">--</div>
+        <div class="sub text-muted">Holdings</div>
+      </div>
+    </section>
+
+    <!-- HOLDINGS TABLE -->
+    <section class="holdings-section">
+      <div class="section-title">📊 Holdings</div>
+      <div class="table-wrapper">
+        <table id="holdingsTable">
+          <thead>
+            <tr>
+              <th data-sort="symbol">Symbol <span class="sort-arrow">▲</span></th>
+              <th data-sort="name">Name <span class="sort-arrow">▲</span></th>
+              <th data-sort="quantity" class="text-right">Qty <span class="sort-arrow">▲</span></th>
+              <th data-sort="avgPrice" class="text-right">Avg Price <span class="sort-arrow">▲</span></th>
+              <th data-sort="currentPrice" class="text-right">CMP <span class="sort-arrow">▲</span></th>
+              <th data-sort="value" class="text-right">Value <span class="sort-arrow">▲</span></th>
+              <th data-sort="pnl" class="text-right">P&L <span class="sort-arrow">▲</span></th>
+              <th data-sort="pnlPct" class="text-right">P&L % <span class="sort-arrow">▲</span></th>
+              <th data-sort="dayChangePct" class="text-right">Day Chg % <span class="sort-arrow">▲</span></th>
+            </tr>
+          </thead>
+          <tbody id="holdingsBody">
+            <tr>
+              <td colspan="9">
+                <div class="empty-state">
+                  <div class="icon">📋</div>
+                  <div class="title">No holdings yet</div>
+                  <div class="subtitle">Upload a CSV file to get started</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- AI INSIGHTS SECTION -->
+    <section class="insights-section" id="insightsSection" style="display:none">
+      <div class="card">
+        <div class="card-title">🧠 AI Portfolio Insights</div>
+        <!-- Health Banner -->
+        <div class="insights-health" id="insightsHealth">
+          <div class="health-score-ring" id="healthRing">
+            <span id="healthScoreNum">--</span>
+          </div>
+          <div class="health-details">
+            <div class="health-label" id="healthLabel">--</div>
+            <div class="signal-pills" id="signalPills"></div>
+          </div>
+        </div>
+        <!-- Key Actions -->
+        <div class="insights-actions" id="insightsActions"></div>
+        <!-- Risk Alerts + Opportunities -->
+        <div class="grid-2 insights-alerts-row">
+          <div>
+            <div class="alert-title text-red">🚨 Risk Alerts</div>
+            <div id="riskAlerts" class="alert-list"></div>
+          </div>
+          <div>
+            <div class="alert-title text-green">💡 Opportunities</div>
+            <div id="opportunities" class="alert-list"></div>
+          </div>
+        </div>
+      </div>
+      <!-- SELL / HOLD Tables -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title text-red">🔴 Stocks to Exit</div>
+          <div class="insight-table-wrapper">
+            <table class="insight-table">
+              <thead><tr><th>Stock</th><th class="text-right">Return</th><th class="text-right">Invested</th><th class="text-right">Now</th><th>Signal</th></tr></thead>
+              <tbody id="sellTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title text-green">💚 Stocks to Hold</div>
+          <div class="insight-table-wrapper">
+            <table class="insight-table">
+              <thead><tr><th>Stock</th><th class="text-right">Return</th><th class="text-right">Value</th><th class="text-right">Weight</th><th>Signal</th></tr></thead>
+              <tbody id="buyTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHARTS + MOVERS ROW -->
+    <div class="grid-2">
+      <!-- SECTOR ALLOCATION -->
+      <div class="card">
+        <div class="card-title">🥧 Sector Allocation</div>
+        <div id="sectorChartWrapper">
+          <div class="chart-container">
+            <canvas id="sectorChart"></canvas>
+          </div>
+        </div>
+        <div class="empty-state" id="sectorEmpty" style="display:none">
+          <div class="subtitle">Upload holdings to see sector allocation</div>
+        </div>
+      </div>
+
+      <!-- TOP MOVERS -->
+      <div class="card">
+        <div class="card-title">🔥 Top Movers</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <div style="font-size:0.75rem; color:var(--green); font-weight:600; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">▲ Gainers</div>
+            <div id="topGainers">
+              <div class="empty-state"><div class="subtitle">--</div></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem; color:var(--red); font-weight:600; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">▼ Losers</div>
+            <div id="topLosers">
+              <div class="empty-state"><div class="subtitle">--</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEWS SECTION -->
+    <section class="news-section">
+      <div class="card">
+        <div class="card-title">📰 Market News</div>
+        <div id="newsFeed">
+          <div class="empty-state">
+            <div class="subtitle">News will appear once portfolio is loaded</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

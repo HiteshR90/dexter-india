@@ -15,6 +15,8 @@ import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
+import { getIndiaStockPrice, getIndiaStockPrices, getIndiaIndices, getIndiaNews, getMfNav, searchMf, createGetIndiaMarketData, INDIA_STOCK_PRICE_DESCRIPTION, INDIA_STOCK_PRICES_DESCRIPTION, INDIA_INDICES_DESCRIPTION, INDIA_NEWS_DESCRIPTION, INDIA_MF_DESCRIPTION, GET_INDIA_MARKET_DATA_DESCRIPTION } from './india/index.js';
+import { uploadPortfolio, getPortfolio, portfolioSummary } from './portfolio/index.js';
 
 /**
  * A registered tool with its rich description for system prompt injection.
@@ -108,6 +110,62 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       description: MEMORY_UPDATE_DESCRIPTION,
     },
   ];
+
+  // Indian Market tools (enabled when INDIA_MARKET=true or always available)
+  if (process.env.INDIA_MARKET !== 'false') {
+    tools.push(
+      {
+        name: 'get_india_market_data',
+        tool: createGetIndiaMarketData(model),
+        description: GET_INDIA_MARKET_DATA_DESCRIPTION,
+      },
+      {
+        name: 'get_india_stock_price',
+        tool: getIndiaStockPrice,
+        description: INDIA_STOCK_PRICE_DESCRIPTION,
+      },
+      {
+        name: 'get_india_stock_prices',
+        tool: getIndiaStockPrices,
+        description: INDIA_STOCK_PRICES_DESCRIPTION,
+      },
+      {
+        name: 'get_india_indices',
+        tool: getIndiaIndices,
+        description: INDIA_INDICES_DESCRIPTION,
+      },
+      {
+        name: 'get_india_news',
+        tool: getIndiaNews,
+        description: INDIA_NEWS_DESCRIPTION,
+      },
+      {
+        name: 'get_mf_nav',
+        tool: getMfNav,
+        description: INDIA_MF_DESCRIPTION,
+      },
+      {
+        name: 'search_mf',
+        tool: searchMf,
+        description: INDIA_MF_DESCRIPTION,
+      },
+      {
+        name: 'upload_portfolio',
+        tool: uploadPortfolio,
+        description: 'Upload a portfolio CSV from Zerodha or Groww. Auto-detects broker format. Saves holdings to local database for analysis.',
+      },
+      {
+        name: 'get_portfolio',
+        tool: getPortfolio,
+        description: 'Retrieve the uploaded portfolio holdings from the local database.',
+      },
+      {
+        name: 'portfolio_summary',
+        tool: portfolioSummary,
+        description: 'Get portfolio summary: total value, P&L, sector allocation, top holdings.',
+      },
+    );
+  }
 
   // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
   if (process.env.EXASEARCH_API_KEY) {

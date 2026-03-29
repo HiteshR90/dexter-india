@@ -1,0 +1,484 @@
+/* === Dexter India — Portfolio Dashboard JS === */
+
+const API = '';
+let autoRefreshTimer = null;
+let autoRefreshOn = false;
+let holdingsData = [];
+let sortCol = 'value';
+let sortDir = -1; // -1 = desc
+let sectorChart = null;
+
+// === INIT ===
+document.addEventListener('DOMContentLoaded', () => {
+  setupUpload();
+  setupTableSort();
+  refreshAll();
+});
+
+// === NUMBER FORMATTING (Indian) ===
+function formatINR(n, decimals = 0) {
+  if (n == null || isNaN(n)) return '--';
+  const neg = n < 0;
+  const abs = Math.abs(n);
+  const fixed = abs.toFixed(decimals);
+  const [intPart, decPart] = fixed.split('.');
+
+  // Indian grouping: last 3, then groups of 2
+  let result = '';
+  const len = intPart.length;
+  if (len <= 3) {
+    result = intPart;
+  } else {
+    result = intPart.slice(-3);
+    let remaining = intPart.slice(0, -3);
+    while (remaining.length > 2) {
+      result = remaining.slice(-2) + ',' + result;
+      remaining = remaining.slice(0, -2);
+    }
+    if (remaining) result = remaining + ',' + result;
+  }
+
+  const formatted = decPart ? result + '.' + decPart : result;
+  return (neg ? '-' : '') + '₹' + formatted;
+}
+
+function formatPct(n) {
+  if (n == null || isNaN(n)) return '--';
+  const sign = n >= 0 ? '+' : '';
+  return sign + n.toFixed(2) + '%';
+}
+
+function formatNum(n) {
+  if (n == null || isNaN(n)) return '--';
+  return n.toLocaleString('en-IN');
+}
+
+function colorClass(n) {
+  if (n > 0) return 'text-green';
+  if (n < 0) return 'text-red';
+  return 'text-muted';
+}
+
+// === AUTO REFRESH ===
+function toggleAutoRefresh() {
+  autoRefreshOn = !autoRefreshOn;
+  const el = document.getElementById('autoRefreshToggle');
+  el.classList.toggle('active', autoRefreshOn);
+
+  if (autoRefreshOn) {
+    autoRefreshTimer = setInterval(refreshAll, 30000);
+  } else {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+// === REFRESH ALL ===
+async function refreshAll() {
+  document.getElementById('lastUpdated').textContent = 'Updating...';
+  await Promise.allSettled([
+    fetchMarket(),
+    fetchPortfolio(),
+    fetchAnalysis(),
+    fetchNews(),
+  ]);
+  // Load AI insights after data is fetched
+  if (typeof loadInsights === 'function') loadInsights();
+  const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('lastUpdated').textContent = 'Updated ' + now;
+}
+
+// === MARKET INDICES ===
+async function fetchMarket() {
+  try {
+    const res = await fetch(API + '/api/market');
+    const data = await res.json();
+    if (data.indices) renderMarket(data.indices);
+  } catch (e) {
+    console.warn('Market fetch failed:', e);
+  }
+}
+
+function renderMarket(indices) {
+  const ids = ['idx-nifty50', 'idx-niftybank', 'idx-niftyit'];
+  indices.forEach((idx, i) => {
+    const el = document.getElementById(ids[i]);
+    if (!el) return;
+    const valEl = el.querySelector('.value');
+    const chgEl = el.querySelector('.change');
+    valEl.textContent = idx.last ? idx.last.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '--';
+    if (idx.last) {
+      chgEl.textContent = (idx.change >= 0 ? '+' : '') + idx.change.toFixed(1) + ' (' + formatPct(idx.pChange) + ')';
+      chgEl.className = 'change ' + colorClass(idx.change);
+    }
+  });
+}
+
+// === PORTFOLIO ===
+async function fetchPortfolio() {
+  try {
+    const res = await fetch(API + '/api/portfolio');
+    const data = await res.json();
+    if (data.holdings) {
+      holdingsData = data.holdings;
+      renderSummary(data.summary);
+      renderHoldings(holdingsData);
+      // Collapse upload if we have data
+      if (holdingsData.length > 0) {
+        document.getElementById('uploadSection').style.display = 'none';
+      }
+    }
+  } catch (e) {
+    console.warn('Portfolio fetch failed:', e);
+  }
+}
+
+function renderSummary(s) {
+  if (!s) return;
+  document.getElementById('totalValue').textContent = formatINR(s.totalValue);
+  document.getElementById('totalInvested').textContent = 'Invested: ' + formatINR(s.totalInvested);
+  
+  const todayEl = document.getElementById('todayPnl');
+  todayEl.textContent = formatINR(s.todayPnl);
+  todayEl.className = 'value ' + colorClass(s.todayPnl);
+  
+  const todayPctEl = document.getElementById('todayPnlPct');
+  todayPctEl.textContent = formatPct(s.todayPnlPct);
+  todayPctEl.className = 'sub ' + colorClass(s.todayPnlPct);
+
+  const totalPnlEl = document.getElementById('totalPnl');
+  totalPnlEl.textContent = formatINR(s.totalPnl);
+  totalPnlEl.className = 'value ' + colorClass(s.totalPnl);
+
+  const totalPctEl = document.getElementById('totalPnlPct');
+  totalPctEl.textContent = formatPct(s.totalPnlPct);
+  totalPctEl.className = 'sub ' + colorClass(s.totalPnlPct);
+
+  document.getElementById('stockCount').textContent = s.stockCount || '--';
+}
+
+function renderHoldings(data) {
+  const tbody = document.getElementById('holdingsBody');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div><div class="title">No holdings yet</div><div class="subtitle">Upload a CSV file to get started</div></div></td></tr>`;
+    return;
+  }
+
+  // Sort
+  const sorted = [...data].sort((a, b) => {
+    const aVal = a[sortCol];
+    const bVal = b[sortCol];
+    if (typeof aVal === 'string') return sortDir * aVal.localeCompare(bVal);
+    return sortDir * ((aVal || 0) - (bVal || 0));
+  });
+
+  tbody.innerHTML = sorted.map(h => `
+    <tr class="fade-in">
+      <td class="symbol-cell">${esc(h.symbol)}</td>
+      <td class="name-cell">${esc(h.name)}</td>
+      <td class="text-right">${formatNum(h.quantity)}</td>
+      <td class="text-right">${formatINR(h.avgPrice, 2)}</td>
+      <td class="text-right">${formatINR(h.currentPrice, 2)}</td>
+      <td class="text-right">${formatINR(h.value)}</td>
+      <td class="text-right ${colorClass(h.pnl)}">${formatINR(h.pnl)}</td>
+      <td class="text-right ${colorClass(h.pnlPct)}">${formatPct(h.pnlPct)}</td>
+      <td class="text-right ${colorClass(h.dayChangePct)}">${formatPct(h.dayChangePct)}</td>
+    </tr>
+  `).join('');
+}
+
+// === TABLE SORT ===
+function setupTableSort() {
+  document.querySelectorAll('#holdingsTable th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      if (sortCol === col) {
+        sortDir *= -1;
+      } else {
+        sortCol = col;
+        sortDir = -1;
+      }
+      // Update sort arrows
+      document.querySelectorAll('#holdingsTable th').forEach(t => t.classList.remove('sorted'));
+      th.classList.add('sorted');
+      th.querySelector('.sort-arrow').textContent = sortDir === 1 ? '▲' : '▼';
+      renderHoldings(holdingsData);
+    });
+  });
+}
+
+// === ANALYSIS (Sectors + Movers) ===
+async function fetchAnalysis() {
+  try {
+    const res = await fetch(API + '/api/portfolio/analysis');
+    const data = await res.json();
+    if (data.sectors) renderSectorChart(data.sectors);
+    if (data.topGainers) renderMovers('topGainers', data.topGainers, true);
+    if (data.topLosers) renderMovers('topLosers', data.topLosers, false);
+  } catch (e) {
+    console.warn('Analysis fetch failed:', e);
+  }
+}
+
+function renderSectorChart(sectors) {
+  const wrapper = document.getElementById('sectorChartWrapper');
+  const empty = document.getElementById('sectorEmpty');
+
+  if (!sectors || sectors.length === 0) {
+    wrapper.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  wrapper.style.display = 'block';
+  empty.style.display = 'none';
+
+  const colors = [
+    '#4a9eff', '#00c853', '#ff6d00', '#aa00ff', '#ff1744',
+    '#00bfa5', '#ffc107', '#e040fb', '#76ff03', '#18ffff',
+    '#ff9100', '#536dfe', '#69f0ae', '#ff80ab', '#b388ff',
+  ];
+
+  const labels = sectors.map(s => s.name);
+  const values = sectors.map(s => s.pct);
+
+  if (sectorChart) sectorChart.destroy();
+
+  sectorChart = new Chart(document.getElementById('sectorChart'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors.slice(0, labels.length),
+        borderWidth: 0,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#a0a0b8',
+            font: { size: 11, family: 'Inter' },
+            padding: 12,
+            usePointStyle: true,
+            pointStyleWidth: 8,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + ctx.label + ': ' + ctx.parsed.toFixed(1) + '%',
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderMovers(containerId, movers, isGainer) {
+  const el = document.getElementById(containerId);
+  if (!movers || movers.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="subtitle">--</div></div>';
+    return;
+  }
+
+  el.innerHTML = movers.map(m => `
+    <div class="mover-item">
+      <div>
+        <div class="mover-symbol">${esc(m.symbol)}</div>
+        <div class="mover-name">${esc(m.name || '')}</div>
+      </div>
+      <div class="mover-change ${isGainer ? 'text-green' : 'text-red'}">${formatPct(m.dayChangePct)}</div>
+    </div>
+  `).join('');
+}
+
+// === NEWS ===
+async function fetchNews() {
+  try {
+    const res = await fetch(API + '/api/news');
+    const data = await res.json();
+    if (data.news) renderNews(data.news);
+  } catch (e) {
+    console.warn('News fetch failed:', e);
+  }
+}
+
+function renderNews(news) {
+  const el = document.getElementById('newsFeed');
+  if (!news || news.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="subtitle">No news available</div></div>';
+    return;
+  }
+
+  el.innerHTML = news.map(n => `
+    <div class="news-item">
+      <div class="sentiment-dot ${n.sentiment || 'neutral'}"></div>
+      <div>
+        <div class="news-title"><a href="${esc(n.link)}" target="_blank">${esc(n.title)}</a></div>
+        <div class="news-meta">${esc(n.source || '')} · ${timeAgo(n.date)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// === UPLOAD ===
+function setupUpload() {
+  const zone = document.getElementById('dropZone');
+  const input = document.getElementById('fileInput');
+
+  ['dragenter', 'dragover'].forEach(e => {
+    zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(e => {
+    zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.remove('dragover'); });
+  });
+
+  zone.addEventListener('drop', ev => {
+    const file = ev.dataTransfer.files[0];
+    if (file) uploadFile(file);
+  });
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) uploadFile(input.files[0]);
+  });
+}
+
+async function uploadFile(file) {
+  const status = document.getElementById('uploadStatus');
+  status.className = 'upload-status';
+  status.style.display = 'block';
+  status.textContent = 'Uploading...';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(API + '/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.error) {
+      status.className = 'upload-status error';
+      status.textContent = '✗ ' + data.error;
+    } else {
+      status.className = 'upload-status success';
+      status.textContent = '✓ Uploaded ' + data.count + ' holdings successfully!';
+      // Refresh data
+      setTimeout(() => {
+        refreshAll();
+        status.style.display = 'none';
+      }, 2000);
+    }
+  } catch (e) {
+    status.className = 'upload-status error';
+    status.textContent = '✗ Upload failed: ' + e.message;
+  }
+}
+
+// === HELPERS ===
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  } catch {
+    return '';
+  }
+}
+
+// === AI INSIGHTS ===
+async function loadInsights() {
+  try {
+    const res = await fetch('/api/insights');
+    if (!res.ok) return;
+    const data = await res.json();
+    renderInsights(data);
+  } catch (e) { console.error('Insights error:', e); }
+}
+
+function renderInsights(data) {
+  const section = document.getElementById('insightsSection');
+  section.style.display = 'block';
+
+  const s = data.summary;
+
+  // Health ring
+  const ring = document.getElementById('healthRing');
+  ring.style.setProperty('--pct', s.healthScore);
+  const ringColor = s.healthScore >= 70 ? 'var(--green)' : s.healthScore >= 50 ? '#ffaa00' : 'var(--red)';
+  ring.style.background = `conic-gradient(${ringColor} ${s.healthScore}%, var(--bg-card) 0)`;
+  document.getElementById('healthScoreNum').textContent = s.healthScore;
+  document.getElementById('healthLabel').textContent = `Portfolio Health: ${s.portfolioHealth}`;
+
+  // Signal pills
+  const pills = document.getElementById('signalPills');
+  pills.innerHTML = [
+    s.strongSell > 0 ? `<span class="signal-pill strong-sell">${s.strongSell} Strong Sell</span>` : '',
+    s.sell > 0 ? `<span class="signal-pill sell">${s.sell} Sell</span>` : '',
+    s.hold > 0 ? `<span class="signal-pill hold">${s.hold} Hold</span>` : '',
+    s.buy > 0 ? `<span class="signal-pill buy">${s.buy} Buy</span>` : '',
+    s.strongBuy > 0 ? `<span class="signal-pill strong-buy">${s.strongBuy} Strong Buy</span>` : '',
+  ].join('');
+
+  // Key actions
+  const actions = document.getElementById('insightsActions');
+  actions.innerHTML = s.keyActions.map(a => `<div class="action-chip">→ ${a}</div>`).join('');
+
+  // Risk alerts
+  document.getElementById('riskAlerts').innerHTML =
+    data.riskAlerts.map(r => `<div class="alert-item">${r}</div>`).join('') || '<div class="alert-item">No major risks</div>';
+
+  // Opportunities
+  document.getElementById('opportunities').innerHTML =
+    data.opportunities.map(o => `<div class="alert-item">${o}</div>`).join('') || '<div class="alert-item">--</div>';
+
+  // Sell table
+  const sells = data.insights.filter(i => i.signal === 'STRONG_SELL' || i.signal === 'SELL');
+  const sellBody = document.getElementById('sellTableBody');
+  sellBody.innerHTML = sells.map(i => {
+    const m = i.metrics;
+    const cls = i.signal === 'STRONG_SELL' ? 'strong-sell' : 'sell';
+    return `<tr>
+      <td><strong>${i.symbol}</strong><br><span class="text-muted" style="font-size:0.7rem">${i.name.substring(0,25)}</span></td>
+      <td class="text-right text-red">${m.totalReturn.toFixed(0)}%</td>
+      <td class="text-right">${formatINR(m.invested)}</td>
+      <td class="text-right">${formatINR(m.currentValue)}</td>
+      <td><span class="signal-badge ${cls}">${i.signal.replace('_',' ')}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Buy table
+  const buys = data.insights
+    .filter(i => i.signal === 'STRONG_BUY' || i.signal === 'BUY')
+    .sort((a, b) => b.metrics.currentValue - a.metrics.currentValue);
+  const buyBody = document.getElementById('buyTableBody');
+  buyBody.innerHTML = buys.map(i => {
+    const m = i.metrics;
+    const cls = i.signal === 'STRONG_BUY' ? 'strong-buy' : 'buy';
+    return `<tr>
+      <td><strong>${i.symbol}</strong><br><span class="text-muted" style="font-size:0.7rem">${i.name.substring(0,25)}</span></td>
+      <td class="text-right text-green">+${m.totalReturn.toFixed(0)}%</td>
+      <td class="text-right">${formatINR(m.currentValue)}</td>
+      <td class="text-right">${m.portfolioWeight.toFixed(1)}%</td>
+      <td><span class="signal-badge ${cls}">${i.signal.replace('_',' ')}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// Insights auto-loaded via refreshAll() — no extra hooks needed.
