@@ -24,5 +24,19 @@ export {
   GET_INDIA_MARKET_DATA_DESCRIPTION,
 } from './india-market-data.js';
 
+// Fundamental analysis (Screener.in scraper)
+export {
+  getStockFundamentals,
+  fetchFundamentals,
+  FUNDAMENTAL_ANALYSIS_DESCRIPTION,
+} from './fundamentals.js';
+
+// Technical analysis (indicators)
+export {
+  getStockTechnicals,
+  computeTechnicals,
+  TECHNICAL_ANALYSIS_DESCRIPTION,
+} from './technical-indicators.js';
+
 // NSE API utilities (for direct use if needed)
 export { getNseQuote, getNseHistorical, getNiftyIndices, resolveNseSymbol, toNseDate } from './nse-api.js';

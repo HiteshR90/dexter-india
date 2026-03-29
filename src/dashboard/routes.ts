@@ -11,6 +11,9 @@ import {
   type NiftyIndex,
 } from "../tools/india/nse-api";
 import { fetchAllIndiaNews } from "../tools/india/india-news";
+import { computeTechnicals } from "../tools/india/technical-indicators";
+import { fetchFundamentals } from "../tools/india/fundamentals";
+import { getNseHistorical } from "../tools/india/nse-api";
 import { generateInsights, type PortfolioInsights } from "./insights";
 
 // Cache for quotes (refresh every 30s)
@@ -223,6 +226,124 @@ export async function handleMarket(): Promise<Response> {
       };
     });
     return json({ indices });
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleTechnicals(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const symbol = url.searchParams.get("symbol");
+    if (!symbol) return json({ error: "symbol query param required" }, 400);
+
+    // Fetch 365 days of historical data
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 365);
+    const fromStr = from.toISOString().split("T")[0];
+    const toStr = to.toISOString().split("T")[0];
+
+    const history = await getNseHistorical(symbol, fromStr, toStr);
+    if (!history || history.length < 30) {
+      return json({ error: `Not enough historical data for ${symbol}` }, 404);
+    }
+
+    const ohlcv = history.map((d: any) => ({
+      date: d.date,
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+      volume: d.volume || 0,
+    }));
+
+    const analysis = computeTechnicals(ohlcv, symbol);
+    return json(analysis);
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handleFundamentals(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const symbol = url.searchParams.get("symbol");
+    if (!symbol) return json({ error: "symbol query param required" }, 400);
+
+    const data = await fetchFundamentals(symbol);
+    return json(data);
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handlePortfolioTechnicals(): Promise<Response> {
+  try {
+    const holdings = await getHoldings();
+    if (holdings.length === 0) return json({ error: "No holdings" }, 400);
+
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 365);
+    const fromStr = from.toISOString().split("T")[0];
+    const toStr = to.toISOString().split("T")[0];
+
+    // Process top 30 by stored value to avoid NSE rate limits
+    const topSymbols = holdings
+      .sort((a, b) => (b.lastPrice * b.quantity) - (a.lastPrice * a.quantity))
+      .slice(0, 30)
+      .map((h) => h.symbol);
+
+    const results: Record<string, any> = {};
+    for (let i = 0; i < topSymbols.length; i += 3) {
+      const batch = topSymbols.slice(i, i + 3);
+      const promises = batch.map(async (sym) => {
+        try {
+          const history = await getNseHistorical(sym, fromStr, toStr);
+          if (history && history.length >= 30) {
+            const ohlcv = history.map((d: any) => ({
+              date: d.date, open: d.open, high: d.high,
+              low: d.low, close: d.close, volume: d.volume || 0,
+            }));
+            results[sym] = computeTechnicals(ohlcv, sym);
+          }
+        } catch { /* skip */ }
+      });
+      await Promise.allSettled(promises);
+      if (i + 3 < topSymbols.length) await new Promise((r) => setTimeout(r, 500));
+    }
+
+    return json({ technicals: results, count: Object.keys(results).length });
+  } catch (e: any) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+export async function handlePortfolioFundamentals(): Promise<Response> {
+  try {
+    const holdings = await getHoldings();
+    if (holdings.length === 0) return json({ error: "No holdings" }, 400);
+
+    // Process top 30 by value
+    const topSymbols = holdings
+      .sort((a, b) => (b.lastPrice * b.quantity) - (a.lastPrice * a.quantity))
+      .slice(0, 30)
+      .map((h) => h.symbol);
+
+    const results: Record<string, any> = {};
+    for (let i = 0; i < topSymbols.length; i += 2) {
+      const batch = topSymbols.slice(i, i + 2);
+      const promises = batch.map(async (sym) => {
+        try {
+          results[sym] = await fetchFundamentals(sym);
+        } catch { /* skip */ }
+      });
+      await Promise.allSettled(promises);
+      if (i + 2 < topSymbols.length) await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    return json({ fundamentals: results, count: Object.keys(results).length });
   } catch (e: any) {
     return json({ error: e.message }, 500);
   }

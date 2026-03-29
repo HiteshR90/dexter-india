@@ -6,6 +6,10 @@ import {
   handleMarket,
   handleNews,
   handleInsights,
+  handleTechnicals,
+  handleFundamentals,
+  handlePortfolioTechnicals,
+  handlePortfolioFundamentals,
 } from "./routes";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3000", 10);
@@ -69,6 +73,14 @@ const server = Bun.serve({
           res = await handleNews();
         } else if (path === "/api/insights" && req.method === "GET") {
           res = await handleInsights();
+        } else if (path === "/api/technicals" && req.method === "GET") {
+          res = await handleTechnicals(req);
+        } else if (path === "/api/fundamentals" && req.method === "GET") {
+          res = await handleFundamentals(req);
+        } else if (path === "/api/portfolio/technicals" && req.method === "GET") {
+          res = await handlePortfolioTechnicals();
+        } else if (path === "/api/portfolio/fundamentals" && req.method === "GET") {
+          res = await handlePortfolioFundamentals();
         } else {
           res = new Response(JSON.stringify({ error: "Not found" }), {
             status: 404,

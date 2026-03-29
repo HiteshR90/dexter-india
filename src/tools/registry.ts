@@ -15,7 +15,7 @@ import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
 import { discoverSkills } from '../skills/index.js';
-import { getIndiaStockPrice, getIndiaStockPrices, getIndiaIndices, getIndiaNews, getMfNav, searchMf, createGetIndiaMarketData, INDIA_STOCK_PRICE_DESCRIPTION, INDIA_STOCK_PRICES_DESCRIPTION, INDIA_INDICES_DESCRIPTION, INDIA_NEWS_DESCRIPTION, INDIA_MF_DESCRIPTION, GET_INDIA_MARKET_DATA_DESCRIPTION } from './india/index.js';
+import { getIndiaStockPrice, getIndiaStockPrices, getIndiaIndices, getIndiaNews, getMfNav, searchMf, createGetIndiaMarketData, INDIA_STOCK_PRICE_DESCRIPTION, INDIA_STOCK_PRICES_DESCRIPTION, INDIA_INDICES_DESCRIPTION, INDIA_NEWS_DESCRIPTION, INDIA_MF_DESCRIPTION, GET_INDIA_MARKET_DATA_DESCRIPTION, getStockTechnicals, TECHNICAL_ANALYSIS_DESCRIPTION, getStockFundamentals, FUNDAMENTAL_ANALYSIS_DESCRIPTION } from './india/index.js';
 import { uploadPortfolio, getPortfolio, portfolioSummary } from './portfolio/index.js';
 
 /**
@@ -148,6 +148,16 @@ export function getToolRegistry(model: string): RegisteredTool[] {
         name: 'search_mf',
         tool: searchMf,
         description: INDIA_MF_DESCRIPTION,
+      },
+      {
+        name: 'get_stock_technicals',
+        tool: getStockTechnicals,
+        description: TECHNICAL_ANALYSIS_DESCRIPTION,
+      },
+      {
+        name: 'get_stock_fundamentals',
+        tool: getStockFundamentals,
+        description: FUNDAMENTAL_ANALYSIS_DESCRIPTION,
       },
       {
         name: 'upload_portfolio',
